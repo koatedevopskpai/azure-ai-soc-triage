@@ -1,0 +1,32 @@
+# Local Azure Functions
+local.settings.json
+__pycache__/
+*.pyc
+
+# Terraform
+terraform-azure-soc/.terraform/
+terraform-azure-soc/*.tfstate
+terraform-azure-soc/*.tfstate.backup
+terraform-azure-soc/*.tfvars
+terraform-azure-soc/crash.log
+terraform-azure-soc/.terraform.lock.hcl
+
+# Python
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# AI keys / secrets
+.env
+*.key
+
+# Cribl local data
+cribl-lite-soc-pipeline/data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
