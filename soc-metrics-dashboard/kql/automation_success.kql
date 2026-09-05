@@ -1,0 +1,8 @@
+AzureDiagnostics
+| where ResourceType == "WORKFLOWS"
+| where OperationName == "Microsoft.Logic/workflows/workflowRunCompleted"
+| summarize
+    TotalRuns   = count(),
+    SuccessRuns = countif(Status_s == "Succeeded"),
+    FailedRuns  = countif(Status_s == "Failed")
+| extend AutomationSuccessRate = todouble(SuccessRuns) / todouble(TotalRuns) * 100

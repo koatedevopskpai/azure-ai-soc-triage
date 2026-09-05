@@ -1,0 +1,8 @@
+AITriageLogs
+| summarize
+    TotalTriageCalls = count(),
+    CriticalCount    = countif(severity == "Critical"),
+    HighCount        = countif(severity == "High"),
+    MediumCount      = countif(severity == "Medium"),
+    LowCount         = countif(severity == "Low")
+| extend CriticalRate = todouble(CriticalCount) / todouble(TotalTriageCalls) * 100

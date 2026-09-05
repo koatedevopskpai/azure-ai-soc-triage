@@ -1,0 +1,14 @@
+let incidents = SecurityIncident
+| project IncidentName = Title, IncidentId = IncidentNumber, IncidentCreated = TimeGenerated;
+
+let playbook_runs = AzureDiagnostics
+| where ResourceType == "WORKFLOWS"
+| where OperationName == "Microsoft.Logic/workflows/workflowRunCompleted"
+| extend IncidentName = tostring(parse_json(Properties_s)["IncidentName"])
+| project IncidentName, PlaybookRunTime = TimeGenerated;
+
+incidents
+| join kind=inner playbook_runs on IncidentName
+| extend TimeToTriageMinutes = datetime_diff("minute", PlaybookRunTime, IncidentCreated)
+| summarize AvgTimeToTriage = avg(TimeToTriageMinutes) by bin(IncidentCreated, 1d)
+| order by IncidentCreated desc
