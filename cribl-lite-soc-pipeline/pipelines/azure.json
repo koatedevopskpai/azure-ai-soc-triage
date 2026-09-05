@@ -1,0 +1,34 @@
+{
+  "id": "azure-sentinel-pipeline",
+  "description": "Route Azure logs to Sentinel workspace (normalize + filter)",
+  "routes": [
+    {
+      "id": "azure-activity-to-sentinel",
+      "filter": "event.source == 'AzureActivity'",
+      "output": "sentinel-http"
+    },
+    {
+      "id": "signin-logs-to-sentinel",
+      "filter": "event.source == 'SigninLogs'",
+      "output": "sentinel-http"
+    }
+  ],
+  "inputs": {
+    "azure-event-hub": {
+      "type": "azure_eventhub",
+      "connection": {
+        "connectionString": "$EVENT_HUB_CONNECTION_STRING"
+      }
+    }
+  },
+  "outputs": {
+    "sentinel-http": {
+      "type": "http",
+      "url": "https://<workspace-id>.ods.opinsights.azure.com/api/logs",
+      "headers": {
+        "Content-Type": "application/json",
+        "Log-Type": "CriblAzureLogs"
+      }
+    }
+  }
+}

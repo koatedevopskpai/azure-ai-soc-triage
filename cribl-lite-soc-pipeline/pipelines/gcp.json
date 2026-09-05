@@ -1,0 +1,21 @@
+{
+  "id": "gcp-audit-pipeline",
+  "description": "Route GCP audit logs to Sentinel workspace",
+  "routes": [
+    {
+      "id": "gcp-audit-to-sentinel",
+      "filter": "event.source == 'GCPAudit'",
+      "output": "sentinel-http"
+    }
+  ],
+  "outputs": {
+    "sentinel-http": {
+      "type": "http",
+      "url": "https://<workspace-id>.ods.opinsights.azure.com/api/logs",
+      "headers": {
+        "Content-Type": "application/json",
+        "Log-Type": "CriblGcpAudit"
+      }
+    }
+  }
+}
