@@ -1,0 +1,109 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "functionUrl": { "type": "string" },
+    "aiTriageUrl": { "type": "string" },
+    "sentinelConnectionName": { "type": "string" }
+  },
+  "triggers": {
+    "When_a_Sentinel_incident_is_created": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "IncidentName": { "type": "string" },
+            "IncidentId": { "type": "string" },
+            "WorkspaceId": { "type": "string" },
+            "IPAddress": { "type": "string" },
+            "UserPrincipalName": { "type": "string" }
+          },
+          "required": [ "IncidentName", "IncidentId", "WorkspaceId", "IPAddress" ]
+        }
+      }
+    }
+  },
+  "actions": {
+    "Call_Enrichment_Function": {
+      "type": "Http",
+      "inputs": {
+        "method": "POST",
+        "uri": "@{parameters('functionUrl')}",
+        "body": {
+          "IPAddress": "@triggerBody()?['IPAddress']",
+          "UserPrincipalName": "@triggerBody()?['UserPrincipalName']",
+          "AlertName": "@triggerBody()?['IncidentName']"
+        }
+      },
+      "runAfter": {}
+    },
+    "Call_AI_Triage": {
+      "type": "Http",
+      "inputs": {
+        "method": "POST",
+        "uri": "@{parameters('aiTriageUrl')}",
+        "body": {
+          "IPAddress": "@triggerBody()?['IPAddress']",
+          "Geo": "@body('Call_Enrichment_Function')?['Geo']",
+          "AbuseScore": "@body('Call_Enrichment_Function')?['AbuseScore']",
+          "AlertName": "@triggerBody()?['IncidentName']",
+          "UserPrincipalName": "@triggerBody()?['UserPrincipalName']"
+        }
+      },
+      "runAfter": {
+        "Call_Enrichment_Function": [ "Succeeded" ]
+      }
+    },
+    "Compose_Comment": {
+      "type": "Compose",
+      "inputs": "AI Triage Decision: @{body('Call_AI_Triage')}"
+    },
+    "Update_Sentinel_Incident": {
+      "type": "ApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "@parameters('sentinelConnectionName')"
+        },
+        "operationId": "Incidents_Update",
+        "parameters": {
+          "subscriptionId": "@{workflow().subscriptionId}",
+          "resourceGroupName": "@{workflow().resourceGroupName}",
+          "workspaceName": "@triggerBody()?['WorkspaceId']",
+          "incidentId": "@triggerBody()?['IncidentId']",
+          "incident": {
+            "properties": {
+              "comments": [
+                {
+                  "message": "@outputs('Compose_Comment')",
+                  "author": "AI Triage Agent",
+                  "createdTimeUtc": "@utcNow()"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "runAfter": {
+        "Compose_Comment": [ "Succeeded" ]
+      }
+    },
+    "Notify_SOC": {
+      "type": "ApiConnection",
+      "inputs": {
+        "host": { "connectionName": "office365" },
+        "operationId": "SendEmail",
+        "parameters": {
+          "to": "soc-team@contoso.com",
+          "subject": "SOC Incident - @{triggerBody()?['IncidentName']}",
+          "body": "Enrichment: @{body('Call_Enrichment_Function')}\n\nAI Triage: @{body('Call_AI_Triage')}"
+        }
+      },
+      "runAfter": {
+        "Update_Sentinel_Incident": [ "Succeeded" ]
+      }
+    }
+  },
+  "outputs": {}
+}
