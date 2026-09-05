@@ -92,6 +92,22 @@ See [docs/COST-BUDGET.md](docs/COST-BUDGET.md) for the full cost-optimization st
 5. Run AI triage agent locally or deploy to App Service / Container Apps.
 6. Connect Sysmon / Activity Logs so Sentinel has telemetry.
 
+## Demo & Screenshots
+
+Screenshots and demo media will be added here as the live environment is captured.
+
+| Area | Screenshot | Status |
+|---|---|---|
+| Architecture | `docs/screenshots/architecture.png` | Placeholder — add draw.io export |
+| Sentinel | `docs/screenshots/sentinel-incident.png` | Placeholder — incident before/after AI triage |
+| Logic Apps | `docs/screenshots/logicapps-run-history.png` | Placeholder — successful run history |
+| Function | `docs/screenshots/function-enrichment-logs.png` | Placeholder — enrichment logs + test run |
+| AI Triage | `docs/screenshots/ai-triage-json.png` | Placeholder — POST /triage JSON response |
+| Metrics | `docs/screenshots/metrics-dashboard.png` | Placeholder — TTT + Automation Success KPI |
+| CI/CD | `docs/screenshots/gh-actions-run.png` | Placeholder — GitHub Actions run |
+
+Demo video (60–90s walkthrough) will be linked here once recorded.
+
 ## Future Work (AWS & GCP Tracks)
 
 This repo will expand to include:
