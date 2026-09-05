@@ -1,0 +1,15 @@
+let threshold = 10;
+let failures =
+    SigninLogs
+    | where ResultType !in ("0", "50125", "50140")
+    | summarize FailCount = count(), FirstFail = min(TimeGenerated), LastFail = max(TimeGenerated) by IPAddress, UserPrincipalName;
+let successes =
+    SigninLogs
+    | where ResultType == "0"
+    | summarize SuccessTime = min(TimeGenerated) by IPAddress, UserPrincipalName;
+failures
+| join kind=inner successes on IPAddress, UserPrincipalName
+| where SuccessTime > LastFail
+| where FailCount >= threshold
+| project UserPrincipalName, IPAddress, FailCount, FirstFail, LastFail, SuccessTime
+| extend MITRE_Tactic = "Credential Access", MITRE_Technique = "T1110"

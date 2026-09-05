@@ -1,0 +1,13 @@
+let fileEvents = Event
+| where Source == "Microsoft-Windows-Sysmon"
+| where EventID in (11, 23, 26)
+| where EventData has_any ("Mimikatz", ".vhd", ".vhdx", ".exe", ".dll")
+| where not(Path has_any ("C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)"))
+| project Computer, TimeGenerated, EventID, FileName = tostring(EventData.FileName), Path = tostring(EventData.Path), Image = tostring(EventData.Image);
+let countEvents =
+    fileEvents
+    | summarize EventCount = count(), FirstEvent = min(TimeGenerated), LastEvent = max(TimeGenerated) by Computer;
+countEvents
+| where EventCount >= 50
+| project Computer, EventCount, FirstEvent, LastEvent
+| extend MITRE_Tactic = "Impact", MITRE_Technique = "T1486"
