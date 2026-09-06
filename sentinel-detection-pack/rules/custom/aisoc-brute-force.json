@@ -1,0 +1,34 @@
+{
+  "kind": "Scheduled",
+  "properties": {
+    "displayName": "AI-SOC Brute Force - Multiple Failed Sign-ins (T1110)",
+    "description": "Synthetic-demo brute-force detection over the AISOCSigninLogs custom table: >= 5 failed sign-ins from the same IP and user within the window (MITRE T1110 - Credential Access).",
+    "severity": "High",
+    "enabled": true,
+    "query": "AISOCSigninLogs_CL\n| where ResultType !in (\"0\", \"50125\", \"50140\")\n| summarize FailCount = count(), FirstFail = min(TimeGenerated), LastFail = max(TimeGenerated) by IPAddress, UserPrincipalName_s\n| where FailCount >= 5\n| project UserPrincipalName = UserPrincipalName_s, IPAddress, FailCount, FirstFail, LastFail\n| extend MITRE_Tactic = \"Credential Access\", MITRE_Technique = \"T1110\"",
+    "queryFrequency": "PT5M",
+    "queryPeriod": "PT30M",
+    "triggerOperator": "GreaterThan",
+    "triggerThreshold": 0,
+    "suppressionDuration": "PT5M",
+    "suppressionEnabled": false,
+    "tactics": ["CredentialAccess"],
+    "techniques": ["T1110"],
+    "alertRuleTemplateName": null,
+    "entityMappings": [
+      {
+        "entityType": "Account",
+        "fieldMappings": [
+          { "identifier": "FullName", "columnName": "UserPrincipalName" }
+        ]
+      },
+      {
+        "entityType": "IP",
+        "fieldMappings": [
+          { "identifier": "Address", "columnName": "IPAddress" }
+        ]
+      }
+    ],
+    "eventGroupingSettings": { "aggregationKind": "SingleAlert" }
+  }
+}
