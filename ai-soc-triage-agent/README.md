@@ -54,4 +54,11 @@ The tests cover health, mock block, and mock ignore paths — no cloud calls.
 
 ## Deployment
 
-Deploy to Azure App Service or Container Apps. See `azure-soc-cicd` for CI/CD.
+Deploy to **Azure Container Apps** (consumption, scale-to-zero) via the Terraform in `terraform-azure-soc`:
+
+```bash
+docker build -t ghcr.io/<owner>/azure-ai-soc-triage/ai-soc-triage-agent:latest .
+docker push ghcr.io/<owner>/azure-ai-soc-triage/ai-soc-triage-agent:latest
+```
+
+GitHub Actions builds/pushes images on push to `main`. The container app runs in **mock mode by default** ($0); flip `AI_MOCK_MODE=false` + add OpenAI env vars for live use.
