@@ -96,17 +96,23 @@ See [docs/COST-BUDGET.md](docs/COST-BUDGET.md) for the full cost-optimization st
 
 ## Demo & Screenshots
 
-Screenshots and demo media will be added here as the live environment is captured.
+Screenshots are captured from the live environment. See `docs/DEPLOYMENT-REFERENCE.md` for the full capture checklist.
 
 | Area | Screenshot | Status |
 |---|---|---|
+| AI Triage (Swagger) | `docs/screenshots/ca-ai-triage-swagger.png` | ✅ Captured |
+| Enrichment (Swagger) | `docs/screenshots/ca-enrichment-swagger.png` | ✅ Captured |
+| Repo (README) | `docs/screenshots/gh-repo-home.png` | ✅ Captured |
+| CI/CD (GitHub Actions) | `docs/screenshots/gh-actions-run.png` | ✅ Captured |
+| GHCR package (AI triage) | `docs/screenshots/ghcr-ai-triage-package.png` | ✅ Captured |
+| GHCR package (enrichment) | `docs/screenshots/ghcr-enrichment-package.png` | ✅ Captured |
 | Architecture | `docs/screenshots/architecture.png` | Placeholder — add draw.io export |
-| Sentinel | `docs/screenshots/sentinel-incident.png` | Placeholder — incident before/after AI triage |
-| Logic Apps | `docs/screenshots/logicapps-run-history.png` | Placeholder — successful run history |
-| Function | `docs/screenshots/function-enrichment-logs.png` | Placeholder — enrichment logs + test run |
-| AI Triage | `docs/screenshots/ai-triage-json.png` | Placeholder — POST /triage JSON response |
-| Metrics | `docs/screenshots/metrics-dashboard.png` | Placeholder — TTT + Automation Success KPI |
-| CI/CD | `docs/screenshots/gh-actions-run.png` | Placeholder — GitHub Actions run |
+| Sentinel incident (with AI triage comment) | `docs/screenshots/sentinel-incident.png` | Portal — capture in Azure |
+| Logic App run history (all green) | `docs/screenshots/logicapps-run-history.png` | Portal — capture in Azure |
+| Logic App designer | `docs/screenshots/logicapps-designer.png` | Portal — capture in Azure |
+| Container Apps list | `docs/screenshots/container-apps-list.png` | Portal — capture in Azure |
+| Metrics dashboard | `docs/screenshots/metrics-dashboard.png` | Portal — capture in Azure |
+| Cost analysis | `docs/screenshots/cost-analysis.png` | Portal — capture in Azure |
 
 Demo video (60–90s walkthrough) will be linked here once recorded.
 
