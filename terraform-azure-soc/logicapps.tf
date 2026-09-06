@@ -31,6 +31,10 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
     "aiTriageUrl": {
       "type": "string",
       "defaultValue": "https://${azurerm_container_app.ai_triage.latest_revision_fqdn}/triage"
+    },
+    "workspaceResourceId": {
+      "type": "string",
+      "defaultValue": "${azurerm_log_analytics_workspace.sentinel.id}"
     }
   },
   "resources": [
@@ -39,6 +43,9 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
       "apiVersion": "2019-05-01",
       "name": "[parameters('workflowName')]",
       "location": "[resourceGroup().location]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "properties": {
         "state": "Enabled",
         "definition": {
@@ -109,18 +116,25 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
               }
             },
             "Update_incident": {
-              "type": "ApiConnection",
+              "type": "Http",
               "inputs": {
-                "body": {
-                  "incidentArmId": "@triggerBody()?['IncidentARMId']"
+                "method": "PUT",
+                "uri": "@concat('https://management.azure.com/subscriptions/', split(triggerBody()?['IncidentARMId'], '/')[2], '/resourceGroups/', split(triggerBody()?['IncidentARMId'], '/')[4], '/providers/Microsoft.OperationalInsights/workspaces/log-soc-mvp/providers/Microsoft.SecurityInsights/incidents/', triggerBody()?['IncidentId'], '/comments/', guid())",
+                "headers": {
+                  "Content-Type": "application/json"
                 },
-                "host": {
-                  "connection": {
-                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                "queries": {
+                  "api-version": "2023-12-01-preview"
+                },
+                "body": {
+                  "properties": {
+                    "message": "@outputs('Compose_Comment')"
                   }
                 },
-                "method": "put",
-                "path": "/Incidents"
+                "authentication": {
+                  "type": "ManagedServiceIdentity",
+                  "audience": "https://management.azure.com"
+                }
               },
               "runAfter": {
                 "Compose_Comment": [ "Succeeded" ]
@@ -151,11 +165,6 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
         "parameters": {
           "$connections": {
             "value": {
-              "azuresentinel": {
-                "id": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${azurerm_resource_group.soc.location}/managedApis/azuresentinel",
-                "connectionId": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.soc.name}/providers/Microsoft.Web/connections/azuresentinel",
-                "connectionName": "azuresentinel"
-              },
               "office365": {
                 "id": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${azurerm_resource_group.soc.location}/managedApis/office365",
                 "connectionId": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.soc.name}/providers/Microsoft.Web/connections/office365",
@@ -164,6 +173,20 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
             }
           }
         }
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(parameters('workspaceResourceId'), 'sentinel-responder')]",
+      "scope": "[parameters('workspaceResourceId')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Logic/workflows', parameters('workflowName'))]"
+      ],
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.Logic/workflows', parameters('workflowName')), '2019-05-01', 'Full').identity.principalId]",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3e150937-b8fe-4cfb-8069-0eaf05ecd056')]",
+        "principalType": "ServicePrincipal"
       }
     }
   ],
