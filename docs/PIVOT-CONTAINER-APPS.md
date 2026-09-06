@@ -230,6 +230,24 @@ The `azuresentinel` connector supports `ManagedServiceIdentity` auth, but the mo
 - `guid('seed')` is invalid in Logic Apps — use `guid()` (random) or a valid format (`N/D/B/P/X`).
 - `workflow().subscriptionId` doesn't exist; derive from `split(workflow().id, '/')[2]` / `[4]`, or better, pass `IncidentARMId` in the trigger body.
 
+## 4d. Pivot: SendGrid → SMTP2GO (Email Provider)
+
+### The third blocker
+
+The initial email replacement was **SendGrid** (via HTTP POST). SendGrid later **removed its free tier**, so a free alternative was needed.
+
+### The fix
+
+Switched `Notify_SOC` to **SMTP2GO's free plan**:
+- **1,000 emails/month, 200/day, no time limit** — more generous than alternatives (MailerSend: 500/mo; Brevo: 300/day).
+- Plain **HTTP REST API** — `POST https://api.smtp2go.com/v3/email/send` with `X-Smtp2go-Api-Key` header. No SMTP connector, no OAuth, no Entra dependency — same pattern as the SendGrid step.
+- Body: `sender`, `to[]`, `subject`, `text_body`.
+- The 25/hour cap is lifted once you verify a sender domain (or single sender email).
+
+### Result
+
+Email notifications are fully **Entra-P2-free** and depend only on a free SMTP2GO API key (a Terraform `smtp2go_api_key` variable, sensitive, empty by default).
+
 ## 5. Lessons Learned (Blog-Worthy)
 
 1. **Read the full error body, not the HTTP status.** `401 Unauthorized` was misleading — the quota message was the real signal.
@@ -242,6 +260,7 @@ The `azuresentinel` connector supports `ManagedServiceIdentity` auth, but the mo
 8. **A "failed" apply can still create resources.** Container Apps and the Logic App deployment were created in Azure even when Terraform reported failure — requiring `terraform import` or delete-and-recreate. Check actual resource state before assuming a clean slate.
 9. **The Logic Apps connector `$connections` value must use the `Microsoft.Web/locations/{region}/managedApis/{connector}` id format** — using `Microsoft.PowerApps/apis` causes `ConnectionsParameterInvalid: missing the required property 'id'`.
 10. **Managed connectors can require Entra ID P2 to authorize** — for Sentinel, **managed identity on an HTTP action sidesteps the license requirement entirely** and is more reproducible than the connector. Prefer MI for Azure-resource actions. (See §4c.)
+11. **Email providers' free tiers change** — SendGrid dropped its free tier mid-project; SMTP2GO's free plan (1,000/mo, no time limit) was a drop-in HTTP replacement. Pin the provider choice in IaC variables so swapping is a config change. (See §4d.)
 
 ## 6. Metrics / Validation
 
