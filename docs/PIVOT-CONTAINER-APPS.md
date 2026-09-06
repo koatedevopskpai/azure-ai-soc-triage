@@ -197,6 +197,39 @@ Keep the **connections portal-managed** and let Terraform **reference them by na
 - A reproducible pipeline is great, but **not at the cost of destroying one-time security authorizations**.
 - The pragmatic split: **IaC owns resources without secrets/tokens; the portal owns anything that needs interactive consent.** Document the one-time portal steps and keep names stable.
 
+## 4c. Pivot: Managed Identity instead of Entra P2 (The Real Unblock)
+
+### The second blocker
+
+Even with portal-managed connections, **authorizing the `azuresentinel` / `office365` connectors failed**:
+
+> "The tenant needs to have Microsoft Entra ID P2 or Microsoft Entra ID Governance license."
+
+The tenant (likely a trial/developer tenant) **lacks Entra ID P2**, so the interactive OAuth consent flow for these connectors cannot complete.
+
+### The solution: managed identity, no interactive OAuth
+
+The `azuresentinel` connector supports `ManagedServiceIdentity` auth, but the more robust and fully reproducible path was to **drop the connector entirely**:
+
+1. Give the Logic App a **system-assigned identity** (in the ARM template: `"identity": { "type": "SystemAssigned" }`).
+2. Grant that identity the **Microsoft Sentinel Responder** role on the Log Analytics workspace (role id `3e150937-b8fe-4cfb-8069-0eaf05ecd056`).
+3. Replace the `Update_incident` ApiConnection action with a plain **HTTP action**:
+   - `PUT https://management.azure.com/.../incidents/{incident}/comments/{guid}`
+   - `authentication: { "type": "ManagedServiceIdentity", "audience": "https://management.azure.com" }`
+4. Verified end-to-end: enrichment → AI triage → **comment written to the Sentinel incident**.
+
+### Result
+
+- **No Entra P2, no interactive OAuth, no `azuresentinel` connection needed.**
+- The critical closed-loop (AI triage → incident comment) now works with **zero P2/license dependency**.
+- The only remaining interactive step is the **Office 365 email** (`Notify_SOC`), which still needs a mailbox authorization — that one can be skipped for the demo or replaced with a free SMTP alternative.
+
+### Pitfalls hit along the way
+
+- `authentication.type` must be **`ManagedServiceIdentity`** (not `ManagedIdentity`) or the action fails with a deserialization error.
+- `guid('seed')` is invalid in Logic Apps — use `guid()` (random) or a valid format (`N/D/B/P/X`).
+- `workflow().subscriptionId` doesn't exist; derive from `split(workflow().id, '/')[2]` / `[4]`, or better, pass `IncidentARMId` in the trigger body.
+
 ## 5. Lessons Learned (Blog-Worthy)
 
 1. **Read the full error body, not the HTTP status.** `401 Unauthorized` was misleading — the quota message was the real signal.
@@ -208,6 +241,7 @@ Keep the **connections portal-managed** and let Terraform **reference them by na
 7. **`azurerm_api_connection` recreates connections and wipes OAuth tokens.** Don't model interactive-consent connectors in Terraform; keep them portal-managed and reference them by name. (See §4b.)
 8. **A "failed" apply can still create resources.** Container Apps and the Logic App deployment were created in Azure even when Terraform reported failure — requiring `terraform import` or delete-and-recreate. Check actual resource state before assuming a clean slate.
 9. **The Logic Apps connector `$connections` value must use the `Microsoft.Web/locations/{region}/managedApis/{connector}` id format** — using `Microsoft.PowerApps/apis` causes `ConnectionsParameterInvalid: missing the required property 'id'`.
+10. **Managed connectors can require Entra ID P2 to authorize** — for Sentinel, **managed identity on an HTTP action sidesteps the license requirement entirely** and is more reproducible than the connector. Prefer MI for Azure-resource actions. (See §4c.)
 
 ## 6. Metrics / Validation
 
