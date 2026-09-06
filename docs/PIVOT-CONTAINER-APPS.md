@@ -151,7 +151,51 @@ App Service Plan (Y1) BLOCKED               Azure Container Apps environment
    - Added `azurerm_container_app_environment` (consumption profile) + two `azurerm_container_app`s.
    - Kept Resource Group, Sentinel/Log Analytics, Storage, Key Vault (all healthy).
 4. Added Dockerfiles to `ai-soc-triage-agent` and `azure-enrichment-engine`.
-5. Build images locally → push to Azure Container Registry → deploy to Container Apps.
+5. Built images locally → pushed to GitHub Container Registry (GHCR) via GitHub Actions → deployed to Container Apps.
+6. Wired the Logic Apps SOAR playbook via Terraform to the two container app URLs.
+7. **Pivot: stopped managing API connections in Terraform** (see §4b).
+
+## 4b. Pivot: API Connections Stay Portal-Managed (Terraform Lesson)
+
+### The problem
+
+The SOAR playbook needs two managed connectors — **Microsoft Sentinel** (`azuresentinel`) and **Office 365 Outlook** (`office365`) — to update incidents and send email. We initially modeled them in Terraform:
+
+```hcl
+resource "azurerm_api_connection" "azuresentinel" {
+  name                = "azuresentinel"
+  resource_group_name = azurerm_resource_group.soc.name
+  managed_api_id      = "/subscriptions/<sub>/providers/Microsoft.Web/locations/uksouth/managedApis/azuresentinel"
+  display_name        = "azuresentinel"
+}
+```
+
+After a `terraform apply`, both connections showed:
+
+```
+status: Error
+error.code: Unauthenticated
+error.message: This connection is not authenticated.
+```
+
+### Root cause
+
+`azurerm_api_connection` **recreated the connection resources**, which **wiped the OAuth tokens** that had been granted interactively in the portal. The connector list in the Logic App designer only populates once a connection exists, and the connection's `createdTime`/`changedTime` showed Terraform's creation time, proving it had overwritten the portal-authorized versions.
+
+### The fix
+
+Keep the **connections portal-managed** and let Terraform **reference them by name only**:
+
+1. Removed the `azurerm_api_connection` blocks from Terraform.
+2. Removed the connection resources from state (`terraform state rm azurerm_api_connection.*`) so Terraform can never touch them again.
+3. Created + authorized both connections **in the portal** with the exact names the Logic App expects (`azuresentinel`, `office365`).
+4. The Logic App's workflow references them via `$connections` — Terraform only deploys the workflow definition.
+
+### Why this matters
+
+- **OAuth consent is inherently interactive** — it cannot (and should not) be automated away by IaC.
+- A reproducible pipeline is great, but **not at the cost of destroying one-time security authorizations**.
+- The pragmatic split: **IaC owns resources without secrets/tokens; the portal owns anything that needs interactive consent.** Document the one-time portal steps and keep names stable.
 
 ## 5. Lessons Learned (Blog-Worthy)
 
@@ -161,6 +205,9 @@ App Service Plan (Y1) BLOCKED               Azure Container Apps environment
 4. **Provider registration affects the portal too.** "No data to display" in Usage + quotas was caused by `Microsoft.Quota` being unregistered.
 5. **When a quota is a hard blocker, rethink the platform, not just the SKU.** The pivot to Container Apps wasn't just a workaround — scale-to-zero + container-native agents were a better fit for the AI-SOC architecture.
 6. **Terraform state stays consistent even on partial apply.** Resources already created were recorded in state; the failed ones were simply absent. A re-run (`terraform plan`) cleanly showed exactly what was missing.
+7. **`azurerm_api_connection` recreates connections and wipes OAuth tokens.** Don't model interactive-consent connectors in Terraform; keep them portal-managed and reference them by name. (See §4b.)
+8. **A "failed" apply can still create resources.** Container Apps and the Logic App deployment were created in Azure even when Terraform reported failure — requiring `terraform import` or delete-and-recreate. Check actual resource state before assuming a clean slate.
+9. **The Logic Apps connector `$connections` value must use the `Microsoft.Web/locations/{region}/managedApis/{connector}` id format** — using `Microsoft.PowerApps/apis` causes `ConnectionsParameterInvalid: missing the required property 'id'`.
 
 ## 6. Metrics / Validation
 
