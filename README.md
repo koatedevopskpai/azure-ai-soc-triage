@@ -106,13 +106,16 @@ Screenshots are captured from the live environment. See `docs/DEPLOYMENT-REFEREN
 | CI/CD (GitHub Actions) | `docs/screenshots/gh-actions-run.png` | ✅ Captured |
 | GHCR package (AI triage) | `docs/screenshots/ghcr-ai-triage-package.png` | ✅ Captured |
 | GHCR package (enrichment) | `docs/screenshots/ghcr-enrichment-package.png` | ✅ Captured |
+| Incident (Sentinel view) | `docs/screenshots/test-ai-soc-brute-force-incident-sentinel-view.png` | ✅ Captured |
+| Incident (overview detail) | `docs/screenshots/test-ai-soc-brute-force-incident-overview-detail.pdf` | ✅ Captured |
+| Sentinel Log overview | `docs/screenshots/ms-sentinel-log-overview.png` | ✅ Captured |
+| Logic App run history (all green) | `docs/screenshots/logic-app-run-history.png` | ✅ Captured |
+| Logic App designer | `docs/screenshots/logic-app-designer-view.png` | ✅ Captured |
+| API connections | `docs/screenshots/api-connections-overview.png` | ✅ Captured |
+| Cost analysis | `docs/screenshots/az-cost-analysis.png` | ✅ Captured |
 | Architecture | `docs/screenshots/architecture.png` | Placeholder — add draw.io export |
-| Sentinel incident (with AI triage comment) | `docs/screenshots/sentinel-incident.png` | Portal — capture in Azure |
-| Logic App run history (all green) | `docs/screenshots/logicapps-run-history.png` | Portal — capture in Azure |
-| Logic App designer | `docs/screenshots/logicapps-designer.png` | Portal — capture in Azure |
-| Container Apps list | `docs/screenshots/container-apps-list.png` | Portal — capture in Azure |
-| Metrics dashboard | `docs/screenshots/metrics-dashboard.png` | Portal — capture in Azure |
-| Cost analysis | `docs/screenshots/cost-analysis.png` | Portal — capture in Azure |
+| Container Apps list | `docs/screenshots/container-apps-list.png` | Placeholder — capture in Azure |
+| Metrics dashboard | `docs/screenshots/metrics-dashboard.png` | Placeholder — capture in Azure |
 
 Demo video (60–90s walkthrough) will be linked here once recorded.
 
