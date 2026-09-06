@@ -1,26 +1,7 @@
-resource "azurerm_api_connection" "azuresentinel" {
-  name                = "azuresentinel"
-  resource_group_name = azurerm_resource_group.soc.name
-  managed_api_id      = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${azurerm_resource_group.soc.location}/managedApis/azuresentinel"
-  display_name        = "azuresentinel"
-}
-
-resource "azurerm_api_connection" "office365" {
-  name                = "office365"
-  resource_group_name = azurerm_resource_group.soc.name
-  managed_api_id      = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${azurerm_resource_group.soc.location}/managedApis/office365"
-  display_name        = "office365"
-}
-
 resource "azurerm_resource_group_template_deployment" "soc_playbook" {
   name                = "la-soc-playbook-deploy"
   resource_group_name = azurerm_resource_group.soc.name
   deployment_mode     = "Incremental"
-
-  depends_on = [
-    azurerm_api_connection.azuresentinel,
-    azurerm_api_connection.office365,
-  ]
 
   parameters_content = jsonencode({
     enrichmentUrl = { value = "https://${azurerm_container_app.enrichment.latest_revision_fqdn}/api/EnrichIP" }
