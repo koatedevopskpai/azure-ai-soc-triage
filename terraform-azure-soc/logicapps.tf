@@ -1,7 +1,26 @@
+resource "azurerm_api_connection" "azuresentinel" {
+  name                = "azuresentinel"
+  resource_group_name = azurerm_resource_group.soc.name
+  managed_api_id      = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${azurerm_resource_group.soc.location}/managedApis/azuresentinel"
+  display_name        = "azuresentinel"
+}
+
+resource "azurerm_api_connection" "office365" {
+  name                = "office365"
+  resource_group_name = azurerm_resource_group.soc.name
+  managed_api_id      = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${azurerm_resource_group.soc.location}/managedApis/office365"
+  display_name        = "office365"
+}
+
 resource "azurerm_resource_group_template_deployment" "soc_playbook" {
   name                = "la-soc-playbook-deploy"
   resource_group_name = azurerm_resource_group.soc.name
   deployment_mode     = "Incremental"
+
+  depends_on = [
+    azurerm_api_connection.azuresentinel,
+    azurerm_api_connection.office365,
+  ]
 
   parameters_content = jsonencode({
     enrichmentUrl = { value = "https://${azurerm_container_app.enrichment.latest_revision_fqdn}/api/EnrichIP" }
@@ -44,6 +63,12 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
         "definition": {
           "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
           "contentVersion": "1.0.0.0",
+          "parameters": {
+            "$connections": {
+              "type": "Object",
+              "defaultValue": {}
+            }
+          },
           "triggers": {
             "When_a_Sentinel_incident_is_created": {
               "type": "Request",
@@ -101,30 +126,19 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
                 "Call_AI_Triage": [ "Succeeded" ]
               }
             },
-            "Update_Sentinel_Incident": {
+            "Update_incident": {
               "type": "ApiConnection",
               "inputs": {
-                "host": {
-                  "connectionName": "azuresentinel"
+                "body": {
+                  "incidentArmId": "@concat('/subscriptions/', workflow().subscriptionId, '/resourceGroups/', workflow().resourceGroupName, '/providers/Microsoft.OperationalInsights/workspaces/log-soc-mvp/providers/Microsoft.SecurityInsights/incidents/', triggerBody()?['IncidentId'])"
                 },
-                "operationId": "Incidents_Update",
-                "parameters": {
-                  "subscriptionId": "@{workflow().subscriptionId}",
-                  "resourceGroupName": "@{workflow().resourceGroupName}",
-                  "workspaceName": "@triggerBody()?['WorkspaceId']",
-                  "incidentId": "@triggerBody()?['IncidentId']",
-                  "incident": {
-                    "properties": {
-                      "comments": [
-                        {
-                          "message": "@outputs('Compose_Comment')",
-                          "author": "AI Triage Agent",
-                          "createdTimeUtc": "@utcNow()"
-                        }
-                      ]
-                    }
+                "host": {
+                  "connection": {
+                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
                   }
-                }
+                },
+                "method": "put",
+                "path": "/Incidents"
               },
               "runAfter": {
                 "Compose_Comment": [ "Succeeded" ]
@@ -133,7 +147,11 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
             "Notify_SOC": {
               "type": "ApiConnection",
               "inputs": {
-                "host": { "connectionName": "office365" },
+                "host": {
+                  "connection": {
+                    "name": "@parameters('$connections')['office365']['connectionId']"
+                  }
+                },
                 "operationId": "SendEmail",
                 "parameters": {
                   "to": "soc-team@contoso.com",
@@ -142,11 +160,27 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
                 }
               },
               "runAfter": {
-                "Update_Sentinel_Incident": [ "Succeeded" ]
+                "Update_incident": [ "Succeeded" ]
               }
             }
           },
           "outputs": {}
+        },
+        "parameters": {
+          "$connections": {
+            "value": {
+              "azuresentinel": {
+                "id": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${azurerm_resource_group.soc.location}/managedApis/azuresentinel",
+                "connectionId": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.soc.name}/providers/Microsoft.Web/connections/azuresentinel",
+                "connectionName": "azuresentinel"
+              },
+              "office365": {
+                "id": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${azurerm_resource_group.soc.location}/managedApis/office365",
+                "connectionId": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.soc.name}/providers/Microsoft.Web/connections/office365",
+                "connectionName": "office365"
+              }
+            }
+          }
         }
       }
     }
