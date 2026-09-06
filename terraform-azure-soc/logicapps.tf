@@ -4,8 +4,11 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
   deployment_mode     = "Incremental"
 
   parameters_content = jsonencode({
-    enrichmentUrl = { value = "https://${azurerm_container_app.enrichment.latest_revision_fqdn}/api/EnrichIP" }
-    aiTriageUrl   = { value = "https://${azurerm_container_app.ai_triage.latest_revision_fqdn}/triage" }
+    enrichmentUrl    = { value = "https://${azurerm_container_app.enrichment.latest_revision_fqdn}/api/EnrichIP" }
+    aiTriageUrl      = { value = "https://${azurerm_container_app.ai_triage.latest_revision_fqdn}/triage" }
+    sendGridApiKey   = { value = var.sendgrid_api_key }
+    socEmailTo       = { value = var.soc_email_to }
+    socEmailFrom     = { value = var.soc_email_from }
   })
 
   lifecycle {
@@ -35,6 +38,15 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
     "workspaceResourceId": {
       "type": "string",
       "defaultValue": "${azurerm_log_analytics_workspace.sentinel.id}"
+    },
+    "sendGridApiKey": {
+      "type": "string"
+    },
+    "socEmailTo": {
+      "type": "string"
+    },
+    "socEmailFrom": {
+      "type": "string"
     }
   },
   "resources": [
@@ -52,10 +64,9 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
           "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
           "contentVersion": "1.0.0.0",
           "parameters": {
-            "$connections": {
-              "type": "Object",
-              "defaultValue": {}
-            }
+            "sendGridApiKey": { "type": "string" },
+            "socEmailTo": { "type": "string" },
+            "socEmailFrom": { "type": "string" }
           },
           "triggers": {
             "When_a_Sentinel_incident_is_created": {
@@ -141,18 +152,34 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
               }
             },
             "Notify_SOC": {
-              "type": "ApiConnection",
+              "type": "Http",
               "inputs": {
-                "host": {
-                  "connection": {
-                    "name": "@parameters('$connections')['office365']['connectionId']"
-                  }
+                "method": "POST",
+                "uri": "https://api.sendgrid.com/v3/mail/send",
+                "headers": {
+                  "Content-Type": "application/json",
+                  "Authorization": "@concat('Bearer ', parameters('sendGridApiKey'))"
                 },
-                "operationId": "SendEmail",
-                "parameters": {
-                  "to": "soc-team@contoso.com",
+                "body": {
+                  "personalizations": [
+                    {
+                      "to": [
+                        {
+                          "email": "@parameters('socEmailTo')"
+                        }
+                      ]
+                    }
+                  ],
+                  "from": {
+                    "email": "@parameters('socEmailFrom')"
+                  },
                   "subject": "SOC Incident - @{triggerBody()?['IncidentName']}",
-                  "body": "Enrichment: @{body('Call_Enrichment')}\n\nAI Triage: @{body('Call_AI_Triage')}"
+                  "content": [
+                    {
+                      "type": "text/plain",
+                      "value": "@{body('Call_Enrichment')}\n\nAI Triage: @{body('Call_AI_Triage')}"
+                    }
+                  ]
                 }
               },
               "runAfter": {
@@ -163,14 +190,14 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
           "outputs": {}
         },
         "parameters": {
-          "$connections": {
-            "value": {
-              "office365": {
-                "id": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${azurerm_resource_group.soc.location}/managedApis/office365",
-                "connectionId": "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.soc.name}/providers/Microsoft.Web/connections/office365",
-                "connectionName": "office365"
-              }
-            }
+          "sendGridApiKey": {
+            "value": "[parameters('sendGridApiKey')]"
+          },
+          "socEmailTo": {
+            "value": "[parameters('socEmailTo')]"
+          },
+          "socEmailFrom": {
+            "value": "[parameters('socEmailFrom')]"
           }
         }
       }
