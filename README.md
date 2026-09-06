@@ -6,8 +6,8 @@ This repository contains a complete AI-enabled Security Operations Center (SOC) 
 
 - **Azure Sentinel** (SIEM)
 - **Azure Logic Apps** (SOAR)
-- **Azure Functions** (Enrichment Engine)
-- **AI Triage Agent** (Azure OpenAI)
+- **Azure Container Apps** (Enrichment Engine + AI Triage Agent)
+- **AI Triage Agent** (Azure OpenAI / mock mode)
 - **Terraform IaC**
 - **GitHub Actions CI/CD**
 - **SOC Metrics Dashboard** (Power BI / Sentinel Workbook)
@@ -30,14 +30,14 @@ This MVP is designed to be **low-cost (target < $20/month)**, fully reproducible
                                      │ Enrichment Trigger
                                      ▼
                       ┌──────────────────────────┐
-                      │ Azure Functions Engine   │
-                      │ (Enrichment + API Calls) │
+                      │ Azure Container Apps      │
+                      │ Enrichment Engine (API)   │
                       └──────────────┬───────────┘
                                      │
                                      ▼
                       ┌──────────────────────────┐
                       │   AI Triage Agent        │
-                      │ (Azure OpenAI)           │
+                      │ (Container App / OpenAI) │
                       └──────────────┬───────────┘
                                      │ Summary + Severity + Action
                                      ▼
@@ -86,11 +86,13 @@ See [docs/COST-BUDGET.md](docs/COST-BUDGET.md) for the full cost-optimization st
 ## Deployment
 
 1. Deploy Azure resources: `cd terraform-azure-soc && terraform init && terraform apply`
-2. Import KQL rules into Sentinel → Analytics → Scheduled rules.
-3. Deploy enrichment Function via GitHub Actions or `func azure functionapp publish`.
-4. Import `logicapps-soc-playbook.json` into Logic Apps.
-5. Run AI triage agent locally or deploy to App Service / Container Apps.
+2. Build & push container images to GHCR (see `azure-soc-cicd`); GitHub Actions does this automatically on push.
+3. Import KQL rules into Sentinel → Analytics → Scheduled rules.
+4. Import `logicapps-soc-playbook.json` into Logic Apps; point it at the Container App URLs.
+5. Services run on Azure Container Apps (consumption, scale-to-zero) — enrichment + AI triage.
 6. Connect Sysmon / Activity Logs so Sentinel has telemetry.
+
+> The AI triage agent runs in **mock mode by default** ($0). Enable live Azure OpenAI via the `AI_MOCK_MODE=false` env var.
 
 ## Demo & Screenshots
 

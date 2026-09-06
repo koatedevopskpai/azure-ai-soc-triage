@@ -4,14 +4,18 @@ on:
   push:
     branches: [ main ]
     paths:
+      - "ai-soc-triage-agent/**"
       - "azure-enrichment-engine/**"
       - "terraform-azure-soc/**"
+      - ".github/workflows/azure-soc-cicd.yml"
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_NAME: func-soc-enrich-mvp
-  AZURE_RESOURCE_GROUP: rg-ai-soc-mvp
   PYTHON_VERSION: "3.11"
+  GHCR_REGISTRY: ghcr.io
+  GHCR_OWNER: koatedevopskpai
+  IMAGE_TRIAGE: azure-ai-soc-triage/ai-soc-triage-agent
+  IMAGE_ENRICH: azure-ai-soc-triage/azure-enrichment-engine
 
 jobs:
   test-ai-triage:
@@ -32,36 +36,40 @@ jobs:
         working-directory: ai-soc-triage-agent
         run: pytest test_app.py -q
 
-  build-and-deploy-function:
+  build-and-push-images:
     runs-on: ubuntu-latest
     needs: test-ai-triage
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ env.GHCR_OWNER }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Function dependencies
-        working-directory: azure-enrichment-engine
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          zip -r ../function.zip .
-
-      - name: Azure Login
-        uses: azure/login@v1
+      - name: Build and push AI triage image
+        uses: docker/build-push-action@v5
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          context: ai-soc-triage-agent
+          push: true
+          tags: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_OWNER }}/${{ env.IMAGE_TRIAGE }}:latest
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_OWNER }}/${{ env.IMAGE_TRIAGE }}:${{ github.sha }}
 
-      - name: Deploy Function App
-        run: |
-          az functionapp deployment source config-zip \
-            --name $AZURE_FUNCTIONAPP_NAME \
-            --resource-group $AZURE_RESOURCE_GROUP \
-            --src azure-enrichment-engine/function.zip
+      - name: Build and push enrichment image
+        uses: docker/build-push-action@v5
+        with:
+          context: azure-enrichment-engine
+          push: true
+          tags: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_OWNER }}/${{ env.IMAGE_ENRICH }}:latest
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_OWNER }}/${{ env.IMAGE_ENRICH }}:${{ github.sha }}
 
   terraform-validate:
     runs-on: ubuntu-latest
