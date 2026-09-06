@@ -77,7 +77,7 @@ azure-ai-soc-engr/
 
 See [docs/COST-BUDGET.md](docs/COST-BUDGET.md) for the full cost-optimization strategy. Key levers:
 
-- Sentinel free tier (up to 10 GB/day ingestion is free in most regions)
+- Sentinel 31-day free trial (10 GB/day ingestion free for new workspaces; keep ingestion low after)
 - Azure Functions consumption plan (free up to 1M executions/month)
 - Azure OpenAI used only for real incidents (low volume), small token budgets, temperature 0
 - Local Cribl (no cloud cost)

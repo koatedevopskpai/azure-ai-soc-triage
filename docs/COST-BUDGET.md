@@ -6,7 +6,7 @@ This document is the cost-control playbook for the Azure AI-SOC MVP. The hard co
 
 | Component | Free Allowance | Target Monthly Cost | Levers |
 |---|---|---|---|
-| Azure Sentinel | 10 GB/day ingestion free (first ~30 days / low-volume dev) | $0–$2 | Keep ingestion < 1 GB/day; exclude non-security tables; basic-tier Log Analytics |
+| Azure Sentinel | 31-day trial: first 10 GB/day ingestion free (new workspaces only; 20/tenant) | $0–$2 | Keep ingestion < 1 GB/day; exclude non-security tables; after trial, PAYG ~£4.28/GB in UK South |
 | Azure Functions (consumption) | 1M executions + 400,000 GB-s free | $0 | Consumption plan, HTTP trigger, low volume |
 | Logic Apps (consumption) | Free tier: 4,000 action runs + 500 workflow runs/month | $0–$3 | Consumption plan; few actions per run |
 | Azure OpenAI | No free tier (pay-per-token) | $5–$12 | gpt-4o-mini, temperature 0, max_tokens <= 256, only run on real incidents; cache/system prompts |
@@ -21,7 +21,7 @@ This document is the cost-control playbook for the Azure AI-SOC MVP. The hard co
 
 ## Cost-Control Rules (Hard Rules)
 
-1. **Never ingest > 1 GB/day** into Log Analytics. Sentinel charges after 10 GB/day, but Log Analytics basic ingestion still costs; 1 GB/day keeps it ~$3–$5. Use `-` filters in KQL to drop noise.
+1. **Never ingest > 1 GB/day** into Log Analytics. Sentinel's 10 GB/day allowance is a **31-day free trial** for new workspaces, not a permanent free tier — after it expires, UK South PAYG is ~£4.28/GB. Keeping ingestion at 1 GB/day means ~$5–$6/month once the trial ends; < 1 GB/day stays near $0. Use `-` filters in KQL to drop noise.
 2. **Keep retention to 30 days** (set in Terraform). No long-term retention for the MVP.
 3. **Azure OpenAI only for real incidents.** Disable the AI step or use a local/mock LLM during development. Set `temperature=0.2` or `0`, `max_tokens=256`, model = `gpt-4o-mini` (cheapest).
 4. **Use function app on Consumption plan (Y1).** Never use Premium/App Service plan.
@@ -35,6 +35,7 @@ This document is the cost-control playbook for the Azure AI-SOC MVP. The hard co
 
 | Risk | Mitigation |
 |---|---|
+| 31-day free trial expires and ingestion costs start | Keep ingestion < 1 GB/day (≤ ~$6/mo at UK South PAYG); destroy workspace when not testing |
 | AI token blowout | Hard cap `max_tokens`; use `gpt-4o-mini`; disable AI call during dev/mock mode |
 | High log ingestion | Filter noise in Cribl/KQL; exclude `SigninLogs` if not needed |
 | Logic Apps runaway loops | Add `runAfter` failure handling; set run timeouts; no loops without termination |
@@ -51,6 +52,6 @@ This document is the cost-control playbook for the Azure AI-SOC MVP. The hard co
 
 ## What This Enables
 
-- **Free-tier-first** design means you can leave the MVP running and still stay under $20/month.
+- **Low-ingestion-first** design means you can leave the MVP running and still stay under $20/month, including after the 31-day Sentinel trial ends.
 - Demonstrates **cost-aware security engineering** — a differentiator for interviews.
 - Keeps your portfolio live without financial stress during your 3-month cash-constrained runway.
