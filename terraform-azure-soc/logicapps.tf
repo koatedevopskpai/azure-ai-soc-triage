@@ -77,6 +77,7 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "IncidentARMId": { "type": "string" },
                     "IncidentName": { "type": "string" },
                     "IncidentId": { "type": "string" },
                     "WorkspaceId": { "type": "string" },
@@ -130,7 +131,7 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
               "type": "ApiConnection",
               "inputs": {
                 "body": {
-                  "incidentArmId": "@concat('/subscriptions/', workflow().subscriptionId, '/resourceGroups/', workflow().resourceGroupName, '/providers/Microsoft.OperationalInsights/workspaces/log-soc-mvp/providers/Microsoft.SecurityInsights/incidents/', triggerBody()?['IncidentId'])"
+                  "incidentArmId": "@triggerBody()?['IncidentARMId']"
                 },
                 "host": {
                   "connection": {
