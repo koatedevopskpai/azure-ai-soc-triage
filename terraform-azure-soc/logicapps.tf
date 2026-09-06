@@ -4,11 +4,11 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
   deployment_mode     = "Incremental"
 
   parameters_content = jsonencode({
-    enrichmentUrl    = { value = "https://${azurerm_container_app.enrichment.latest_revision_fqdn}/api/EnrichIP" }
-    aiTriageUrl      = { value = "https://${azurerm_container_app.ai_triage.latest_revision_fqdn}/triage" }
-    sendGridApiKey   = { value = var.sendgrid_api_key }
-    socEmailTo       = { value = var.soc_email_to }
-    socEmailFrom     = { value = var.soc_email_from }
+    enrichmentUrl  = { value = "https://${azurerm_container_app.enrichment.latest_revision_fqdn}/api/EnrichIP" }
+    aiTriageUrl    = { value = "https://${azurerm_container_app.ai_triage.latest_revision_fqdn}/triage" }
+    smtp2goApiKey  = { value = var.smtp2go_api_key }
+    socEmailTo     = { value = var.soc_email_to }
+    socEmailFrom   = { value = var.soc_email_from }
   })
 
   lifecycle {
@@ -39,7 +39,7 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
       "type": "string",
       "defaultValue": "${azurerm_log_analytics_workspace.sentinel.id}"
     },
-    "sendGridApiKey": {
+    "smtp2goApiKey": {
       "type": "string"
     },
     "socEmailTo": {
@@ -64,7 +64,7 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
           "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
           "contentVersion": "1.0.0.0",
           "parameters": {
-            "sendGridApiKey": { "type": "string" },
+            "smtp2goApiKey": { "type": "string" },
             "socEmailTo": { "type": "string" },
             "socEmailFrom": { "type": "string" }
           },
@@ -155,31 +155,18 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
               "type": "Http",
               "inputs": {
                 "method": "POST",
-                "uri": "https://api.sendgrid.com/v3/mail/send",
+                "uri": "https://api.smtp2go.com/v3/email/send",
                 "headers": {
                   "Content-Type": "application/json",
-                  "Authorization": "@concat('Bearer ', parameters('sendGridApiKey'))"
+                  "X-Smtp2go-Api-Key": "@parameters('smtp2goApiKey')"
                 },
                 "body": {
-                  "personalizations": [
-                    {
-                      "to": [
-                        {
-                          "email": "@parameters('socEmailTo')"
-                        }
-                      ]
-                    }
+                  "sender": "@parameters('socEmailFrom')",
+                  "to": [
+                    "@parameters('socEmailTo')"
                   ],
-                  "from": {
-                    "email": "@parameters('socEmailFrom')"
-                  },
                   "subject": "SOC Incident - @{triggerBody()?['IncidentName']}",
-                  "content": [
-                    {
-                      "type": "text/plain",
-                      "value": "@{body('Call_Enrichment')}\n\nAI Triage: @{body('Call_AI_Triage')}"
-                    }
-                  ]
+                  "text_body": "@{body('Call_Enrichment')}\n\nAI Triage: @{body('Call_AI_Triage')}"
                 }
               },
               "runAfter": {
@@ -190,8 +177,8 @@ resource "azurerm_resource_group_template_deployment" "soc_playbook" {
           "outputs": {}
         },
         "parameters": {
-          "sendGridApiKey": {
-            "value": "[parameters('sendGridApiKey')]"
+          "smtp2goApiKey": {
+            "value": "[parameters('smtp2goApiKey')]"
           },
           "socEmailTo": {
             "value": "[parameters('socEmailTo')]"

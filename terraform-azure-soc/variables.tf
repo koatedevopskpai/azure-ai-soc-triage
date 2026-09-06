@@ -1,8 +1,8 @@
-variable "sendgrid_api_key" {
+variable "smtp2go_api_key" {
   type        = string
   default     = ""
   sensitive   = true
-  description = "SendGrid API key for the SOC notification email (free tier: 100 emails/day). Leave empty to deploy without email."
+  description = "SMTP2GO API key for the SOC notification email (free tier: 1,000 emails/month, 200/day). Leave empty to deploy without email."
 }
 
 variable "soc_email_to" {
