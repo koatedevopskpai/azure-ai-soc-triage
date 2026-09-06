@@ -45,6 +45,45 @@ curl.exe -s -X POST "https://ca-enrichment-b9lo2q.ambitiousmeadow-3dfc826d.uksou
 
 > PowerShell aliases `curl` to `Invoke-WebRequest`; use `curl.exe` explicitly.
 
+## Logic App SOAR Playbook
+
+Deployed via Terraform (`terraform-azure-soc/logicapps.tf`) as `la-soc-playbook`.
+
+| Step | Type | Status |
+|---|---|---|
+| Trigger (HTTP request) | `Request` | ✅ Wired to Sentinel incident payload |
+| `Call_Enrichment` | HTTP → enrichment container app `/api/EnrichIP` | ✅ Verified |
+| `Call_AI_Triage` | HTTP → AI triage container app `/triage` | ✅ Verified |
+| `Compose_Comment` | Compose | ✅ Verified |
+| `Update_Sentinel_Incident` | Azure Sentinel API connection | ⚠️ Needs one-time portal consent |
+| `Notify_SOC` | Office 365 email | ⚠️ Needs one-time portal consent |
+
+### Tested run (2026-09-06)
+
+- `Call_Enrichment` → Succeeded
+- `Call_AI_Triage` → Succeeded — returned:
+  `{"summary":"Alert Brute Force - 10 failed logins from 185.220.101.10 appears benign.","severity":"Low","recommended_action":"Ignore","runbook_reference":"RB-GEN-00"}`
+- `Update_Sentinel_Incident` → Failed (BadRequest) — **Azure Sentinel connection not authorized yet**
+- `Notify_SOC` → Skipped — **Office 365 connection not authorized yet**
+
+### One-time connector authorization (portal, manual)
+
+1. **Azure Sentinel connection** — In Sentinel: Automation → Playbooks → open `la-soc-playbook` → the "Update incident" step shows a connection prompt → Authorize with your Azure account.
+2. **Office 365 connection** — In the Logic App designer → `Notify_SOC` step → create connection → sign in to the SOC mailbox.
+
+These are interactive OAuth flows that cannot be completed via CLI — required only once.
+
+### Re-running the end-to-end test
+
+```powershell
+$cb = az rest --method post --uri "https://management.azure.com/subscriptions/5157399a-2300-4967-96e9-6a38962740d3/resourceGroups/rg-ai-soc-mvp/providers/Microsoft.Logic/workflows/la-soc-playbook/triggers/When_a_Sentinel_incident_is_created/listCallbackUrl?api-version=2019-05-01" --query "value" -o tsv
+$payload = '{"IncidentName":"Brute Force - 10 failed logins","IncidentId":"123456","WorkspaceId":"872af58a-45db-4e38-a411-b61504195236","IPAddress":"185.220.101.10","UserPrincipalName":"koate@contoso.com"}'
+Set-Content -LiteralPath "$env:TEMP\incident.json" -Value $payload -NoNewline -Encoding ascii
+curl.exe -s -X POST $cb -H "Content-Type: application/json" --data-binary "@$env:TEMP\incident.json"
+```
+
+Then check run history in the portal or via `az rest` on `.../runs`.
+
 ## Azure Portal Navigation
 
 - Container Apps: Azure Portal → `rg-ai-soc-mvp` → `ca-ai-triage-b9lo2q` / `ca-enrichment-b9lo2q`
