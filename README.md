@@ -107,6 +107,7 @@ Screenshots are captured from the live environment. See `docs/DEPLOYMENT-REFEREN
 | GHCR package (AI triage) | `docs/screenshots/ghcr-ai-triage-package.png` | ✅ Captured |
 | GHCR package (enrichment) | `docs/screenshots/ghcr-enrichment-package.png` | ✅ Captured |
 | Incident (Sentinel view) | `docs/screenshots/test-ai-soc-brute-force-incident-sentinel-view.png` | ✅ Captured |
+| Incident (AI triage comments) | `docs/screenshots/test-ai-soc-brute-force-incident-triage-comments.png` | ✅ Captured |
 | Incident (overview detail) | `docs/screenshots/test-ai-soc-brute-force-incident-overview-detail.pdf` | ✅ Captured |
 | Sentinel Log overview | `docs/screenshots/ms-sentinel-log-overview.png` | ✅ Captured |
 | Logic App run history (all green) | `docs/screenshots/logic-app-run-history.png` | ✅ Captured |
