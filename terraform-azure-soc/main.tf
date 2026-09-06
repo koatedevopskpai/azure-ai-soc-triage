@@ -33,62 +33,94 @@ resource "azurerm_key_vault" "soc" {
   purge_protection_enabled   = false
 }
 
-resource "azurerm_storage_account" "soc" {
-  name                     = "stgsocmvp${random_string.suffix.result}"
-  resource_group_name      = azurerm_resource_group.soc.name
-  location                 = azurerm_resource_group.soc.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  min_tls_version          = "TLS1_2"
-}
-
-resource "azurerm_service_plan" "soc" {
-  name                = "plan-soc-mvp"
-  location            = azurerm_resource_group.soc.location
-  resource_group_name = azurerm_resource_group.soc.name
-  os_type             = "Linux"
-  sku_name            = "Y1"
-}
-
-resource "azurerm_linux_function_app" "enrichment" {
-  name                       = "func-soc-enrich-${random_string.suffix.result}"
-  resource_group_name        = azurerm_resource_group.soc.name
+resource "azurerm_container_app_environment" "soc" {
+  name                       = "cae-soc-mvp"
   location                   = azurerm_resource_group.soc.location
-  service_plan_id            = azurerm_service_plan.soc.id
-  storage_account_name       = azurerm_storage_account.soc.name
-  storage_account_access_key = azurerm_storage_account.soc.primary_access_key
+  resource_group_name        = azurerm_resource_group.soc.name
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.sentinel.id
 
-  site_config {
-    application_stack {
-      python_version = "3.11"
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }
+}
+
+resource "azurerm_container_app" "ai_triage" {
+  name                         = "ca-ai-triage-${random_string.suffix.result}"
+  container_app_environment_id = azurerm_container_app_environment.soc.id
+  resource_group_name          = azurerm_resource_group.soc.name
+  revision_mode                = "Single"
+
+  template {
+    min_replicas = 0
+    max_replicas = 1
+
+    container {
+      name   = "ai-triage"
+      image  = "ghcr.io/koatedevopskpai/azure-ai-soc-triage/ai-soc-triage-agent:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      env {
+        name  = "AI_MOCK_MODE"
+        value = "true"
+      }
     }
-    ftps_state = "FtpsOnly"
   }
 
-  app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME" = "python"
-    "ABUSEIPDB_API_KEY"        = ""
-    "AZURE_OPENAI_ENDPOINT"    = ""
-    "AZURE_OPENAI_KEY"         = ""
-    "AZURE_OPENAI_DEPLOYMENT"  = ""
-    "AI_MOCK_MODE"             = "true"
-  }
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "auto"
 
-  identity {
-    type = "SystemAssigned"
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
   }
 }
 
-resource "azurerm_key_vault_access_policy" "function" {
-  key_vault_id = azurerm_key_vault.soc.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_linux_function_app.enrichment.identity[0].principal_id
+resource "azurerm_container_app" "enrichment" {
+  name                         = "ca-enrichment-${random_string.suffix.result}"
+  container_app_environment_id = azurerm_container_app_environment.soc.id
+  resource_group_name          = azurerm_resource_group.soc.name
+  revision_mode                = "Single"
 
-  secret_permissions = ["Get", "List"]
+  template {
+    min_replicas = 0
+    max_replicas = 1
+
+    container {
+      name   = "enrichment"
+      image  = "ghcr.io/koatedevopskpai/azure-ai-soc-triage/azure-enrichment-engine:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      env {
+        name  = "ABUSEIPDB_API_KEY"
+        value = ""
+      }
+    }
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 8001
+    transport        = "auto"
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
 }
 
-output "function_app_name" {
-  value = azurerm_linux_function_app.enrichment.name
+output "ai_triage_url" {
+  value = "https://${azurerm_container_app.ai_triage.latest_revision_fqdn}"
+}
+
+output "enrichment_url" {
+  value = "https://${azurerm_container_app.enrichment.latest_revision_fqdn}"
 }
 
 output "resource_group_name" {
